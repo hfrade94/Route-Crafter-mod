@@ -7,7 +7,6 @@ export class SolutionVisualizer {
         
         this.cppSolutionLayer = null;
         this.solutionDirectionLayer = null;
-        this.turnNumbersLayer = null;
     }
 
     getCppSolutionLayer() {
@@ -128,7 +127,7 @@ export class SolutionVisualizer {
         // (Previously displayed "Chinese Postman Solution (Vertex Path)")
         this.cppSolutionLayer.addTo(this.mapManager.getMap());
         
-        // Create direction arrows and turn number markers
+        // Create direction arrows
         this.addSolutionDirectionArrows(reconstructedPath);
         
         // Add arrow markers to map with high z-index to appear above route line
@@ -137,15 +136,6 @@ export class SolutionVisualizer {
             // Ensure arrows are above the route line
             if (typeof this.solutionDirectionLayer.bringToFront === 'function') {
                 this.solutionDirectionLayer.bringToFront();
-            }
-        }
-        
-        // Add turn number markers to map (above arrows)
-        if (this.turnNumbersLayer) {
-            this.turnNumbersLayer.addTo(this.mapManager.getMap());
-            // Ensure turn numbers are above everything
-            if (typeof this.turnNumbersLayer.bringToFront === 'function') {
-                this.turnNumbersLayer.bringToFront();
             }
         }
         // Não trazer para frente automaticamente - deixar o Trim Mode controlar a ordem das camadas
@@ -416,40 +406,6 @@ export class SolutionVisualizer {
         });
     }
 
-    // Calculate angle difference between two bearings
-    calculateAngleDifference(bearing1, bearing2) {
-        let diff = Math.abs(bearing1 - bearing2);
-        if (diff > 180) {
-            diff = 360 - diff;
-        }
-        return diff;
-    }
-
-    // Create numbered turn marker icon
-    createTurnNumberIcon(number, size = 20) {
-        const svg = `
-            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-                <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" 
-                        fill="#ffffff" 
-                        stroke="#0d47a1" 
-                        stroke-width="2" 
-                        opacity="1"/>
-                <text x="${size/2}" y="${size/2}" 
-                      text-anchor="middle" 
-                      dominant-baseline="central" 
-                      font-family="Arial, sans-serif" 
-                      font-size="${size * 0.5}" 
-                      font-weight="bold" 
-                      fill="#0d47a1">${number}</text>
-            </svg>
-        `;
-        return L.divIcon({
-            className: 'route-turn-number-icon',
-            html: svg,
-            iconSize: [size, size],
-            iconAnchor: [size/2, size/2]
-        });
-    }
 
     addSolutionDirectionArrows(path) {
         if (!path || path.length < 2) {
@@ -467,14 +423,6 @@ export class SolutionVisualizer {
             this.solutionDirectionLayer = null;
         }
         
-        // Remove existing turn numbers layer
-        if (this.turnNumbersLayer) {
-            if (this.turnNumbersLayer._map) {
-                this.mapManager.getMap().removeLayer(this.turnNumbersLayer);
-            }
-            this.turnNumbersLayer = null;
-        }
-        
         try {
             // Convert path to arrays [lat, lng]
             const formattedPath = path.map(point => {
@@ -487,16 +435,8 @@ export class SolutionVisualizer {
                 return point;
             });
             
-            // Create layer groups
+            // Create layer group for arrows only
             this.solutionDirectionLayer = L.layerGroup();
-            this.turnNumbersLayer = L.layerGroup();
-            
-            // Detect turn points (where direction changes significantly in straight segments)
-            // Ignore gradual curves and roundabouts
-            const turnPoints = [];
-            const minTurnAngle = 30; // Minimum angle change to consider a turn (degrees) - increased to filter gradual curves
-            const minDistanceBetweenTurns = 30; // Minimum distance in meters between turn points
-            const lookAheadDistance = 50; // Look ahead distance in meters to detect gradual curves
             
             // Helper function to calculate distance between two points in meters
             const calculateDistanceMeters = (point1, point2) => {
@@ -511,100 +451,6 @@ export class SolutionVisualizer {
                 const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                 return R * c;
             };
-            
-            // Helper function to check if a point is part of a gradual curve
-            const isGradualCurve = (startIdx, endIdx, path) => {
-                if (endIdx - startIdx < 3) return false;
-                
-                // Calculate total angle change over the curve segment
-                let totalAngleChange = 0;
-                let segmentCount = 0;
-                
-                for (let i = startIdx; i < endIdx - 1; i++) {
-                    const bearing1 = this.calculateBearing(path[i], path[i + 1]);
-                    const bearing2 = i < endIdx - 2 ? this.calculateBearing(path[i + 1], path[i + 2]) : bearing1;
-                    const angleDiff = this.calculateAngleDifference(bearing1, bearing2);
-                    totalAngleChange += angleDiff;
-                    segmentCount++;
-                }
-                
-                // Calculate average angle change per segment
-                const avgAngleChange = segmentCount > 0 ? totalAngleChange / segmentCount : 0;
-                
-                // If average angle change is small (< 10 degrees), it's a gradual curve
-                // Also check if total distance is long (indicating a roundabout or long curve)
-                const totalDistance = calculateDistanceMeters(path[startIdx], path[endIdx]);
-                
-                return avgAngleChange < 10 && totalDistance > 20; // Gradual curve over long distance
-            };
-            
-            // Find significant turn points, skipping gradual curves
-            for (let i = 2; i < formattedPath.length - 2; i++) {
-                // Look ahead to see if this is part of a gradual curve
-                let lookAheadIdx = i;
-                let lookAheadDistance = 0;
-                
-                // Find how far ahead we need to look
-                while (lookAheadIdx < formattedPath.length - 1 && lookAheadDistance < lookAheadDistance) {
-                    lookAheadDistance += calculateDistanceMeters(formattedPath[lookAheadIdx], formattedPath[lookAheadIdx + 1]);
-                    lookAheadIdx++;
-                }
-                
-                // Check if this point is part of a gradual curve
-                if (isGradualCurve(Math.max(0, i - 2), Math.min(formattedPath.length - 1, lookAheadIdx), formattedPath)) {
-                    continue; // Skip gradual curves
-                }
-                
-                // Check angle change at this point
-                const prevPoint = formattedPath[i - 1];
-                const currentPoint = formattedPath[i];
-                const nextPoint = formattedPath[i + 1];
-                
-                // Calculate bearings over longer segments to detect real turns, not small wiggles
-                const segmentLength = 2; // Use 2-3 points ahead/behind for more stable bearing calculation
-                const prevSegmentPoint = formattedPath[Math.max(0, i - segmentLength)];
-                const nextSegmentPoint = formattedPath[Math.min(formattedPath.length - 1, i + segmentLength)];
-                
-                const bearing1 = this.calculateBearing(prevSegmentPoint, currentPoint);
-                const bearing2 = this.calculateBearing(currentPoint, nextSegmentPoint);
-                
-                // Calculate angle difference
-                const angleDiff = this.calculateAngleDifference(bearing1, bearing2);
-                
-                // If angle change is significant, check distance from last turn point
-                if (angleDiff >= minTurnAngle) {
-                    // Check if this turn is far enough from the last one
-                    let isFarEnough = true;
-                    if (turnPoints.length > 0) {
-                        const lastTurn = turnPoints[turnPoints.length - 1];
-                        const distance = calculateDistanceMeters(lastTurn.point, currentPoint);
-                        isFarEnough = distance >= minDistanceBetweenTurns;
-                    }
-                    
-                    if (isFarEnough) {
-                        turnPoints.push({
-                            point: currentPoint,
-                            index: i,
-                            angle: angleDiff,
-                            bearing: bearing2 // Direction after the turn
-                        });
-                    }
-                }
-            }
-            
-            // Create numbered markers at turn points
-            turnPoints.forEach((turn, index) => {
-                const turnNumber = index + 1;
-                const turnIcon = this.createTurnNumberIcon(turnNumber, 24);
-                
-                const marker = L.marker([turn.point[0], turn.point[1]], {
-                    icon: turnIcon,
-                    zIndexOffset: 1500, // Above arrows and route line
-                    interactive: false
-                });
-                
-                this.turnNumbersLayer.addLayer(marker);
-            });
             
             // Helper function to calculate midpoint between two points
             const getMidpoint = (point1, point2) => {
@@ -653,7 +499,6 @@ export class SolutionVisualizer {
             }
             
             console.log('addSolutionDirectionArrows: created', this.solutionDirectionLayer.getLayers().length, 'arrow markers');
-            console.log('addSolutionDirectionArrows: created', turnPoints.length, 'turn number markers');
         } catch (error) {
             console.error('addSolutionDirectionArrows: error creating arrows', error);
         }
@@ -669,12 +514,6 @@ export class SolutionVisualizer {
                 this.mapManager.getMap().removeLayer(this.solutionDirectionLayer);
             }
             this.solutionDirectionLayer = null;
-        }
-        if (this.turnNumbersLayer) {
-            if (this.turnNumbersLayer._map) {
-                this.mapManager.getMap().removeLayer(this.turnNumbersLayer);
-            }
-            this.turnNumbersLayer = null;
         }
     }
 }

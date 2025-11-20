@@ -982,7 +982,8 @@ export class RoadProcessor {
                     });
                 }
                 
-                this.renderDirectionArrows();
+                // Don't render direction arrows on individual roads - use solution visualizer arrows instead
+                // this.renderDirectionArrows();
                 
                 // Calculate total road length and coverage/route filter statistics
                 let totalLengthKm = 0;

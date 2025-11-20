@@ -193,7 +193,8 @@ export class RoutingManager {
                 opacity: 0.5,
                 dashArray: '8 6'
             }).addTo(this.map);
-            this.addRouteDirectionLayer(this.routePoints);
+            // Don't add direction layer during animation - use the solution visualizer arrows instead
+            // this.addRouteDirectionLayer(this.routePoints);
         }
         
         // Initialize interpolation
