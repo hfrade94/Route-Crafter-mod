@@ -1,33 +1,27 @@
-# 🛣️ Route Crafter - Modificado
+# 🛣️ Route Crafter - Modified
 
-> **Baseado em:** [Route Crafter](https://github.com/seen-one/Route-Crafter) por [seen-one](https://github.com/seen-one)  
-> **Licença:** MIT (veja [LICENSE](LICENSE))
+> **Based on:** [Route Crafter](https://github.com/seen-one/Route-Crafter) by [seen-one](https://github.com/seen-one)  
+> **License:** MIT (see [LICENSE](LICENSE))
 
-Esta é uma versão modificada do Route Crafter com melhorias e funcionalidades adicionais.
+This is a modified version of Route Crafter with the Trim Mode functionality added.
 
-Route Crafter é uma aplicação web para gerar automaticamente a rota .gpx mais eficiente cobrindo todas as ruas de uma área. Criado originalmente para gerar rotas para coletar imagens street-view/360 para [Google Street View, Mapillary, Panoramax etc.](https://wiki.openstreetmap.org/wiki/Street-level_imagery_services)
+Route Crafter is a web app to automatically generate the most efficient .gpx route covering every street in an area. Created to generate routes to collect street-view/360 imagery for [Google Street View, Mapillary, Panoramax etc.](https://wiki.openstreetmap.org/wiki/Street-level_imagery_services)
 
-## 🆕 Melhorias e Modificações
+## 🆕 Modifications
 
-Esta versão inclui as seguintes melhorias em relação ao projeto original:
+This version adds the following functionality to the original project:
 
-### Funcionalidades Adicionadas
-- **Trim Mode**: Modo interativo para remover segmentos de rua indesejados do grafo antes de gerar a rota
-- **Otimização de Rotatórias**: Algoritmo melhorado para evitar múltiplas voltas desnecessárias em rotatórias e praças circulares
-- **Setas de Direção**: Visualização de setas indicando a direção das vias no mapa
-- **Área em km²**: Exibição da área do polígono em km² ao invés de hectares
-- **Interface Aprimorada**: Campos de filtro ocultos por padrão, melhor organização da UI
+### Trim Mode
+Interactive mode to remove unwanted road segments from the graph before generating the route. Click on road segments to mark them as optional, with automatic removal of disconnected segments using BFS/Flood Fill algorithm.
 
-### Correções
-- Correção do problema do Trim Mode após gerar rota
-- Melhorias na detecção e processamento de rotatórias circulares
-- Ajustes de z-index para melhor interação entre camadas
-- Biblioteca `leaflet.polylineDecorator` incluída localmente para evitar problemas de CDN
+**Usage:**
+1. Click "Trim Mode" after fetching roads
+2. Click on road segments you want to remove (they will turn red)
+3. Click again to restore a removed segment
+4. Use "Save Trim" to save changes or "Cancel" to discard
+5. Generate the route again to apply changes
 
-### Melhorias Visuais
-- Cores das rotas alteradas para azul (rota gerada) e verde (progresso da simulação)
-- Marcadores de nós (intersecções) visíveis durante o Trim Mode
-- Remoção de tooltips desnecessários durante o Trim Mode
+The system automatically removes disconnected segments after manual removal.
 
 ## Search Map
 If you know the name of a place and want to quickly jump there, you can use the search map feature. This is not required as part of route generation.
@@ -95,23 +89,12 @@ With Windy Rural, enabling this means you can exclude sections that have already
 | Coverage Threshold | How much of the section should already be covered to be excluded from route. |
 |Proximity Threshold | How far to search if there is already coverage. |
 
-
-## Trim Mode
-
-O Trim Mode permite remover segmentos de rua indesejados do grafo antes de gerar a rota:
-
-1. Clique em "Trim Mode" após buscar as vias
-2. Clique nos segmentos de rua que deseja remover (eles ficarão vermelhos)
-3. Clique novamente para restaurar um segmento removido
-4. Use "Save Trim" para salvar as alterações ou "Cancel" para descartar
-5. Gere a rota novamente para aplicar as mudanças
-
-O sistema automaticamente remove segmentos desconectados após a remoção manual.
-
 ## Navigation and Route Filter
 The navigation filter can be used to exclude OSM ways that you do not want to traverse through. e.g. I do not want to drive on a footway.
 
-**Nota:** Os campos de filtro estão ocultos por padrão nesta versão modificada. Eles podem ser reativados editando o código se necessário.
+The route filter is only available for Windy Rural. This is for OSM ways that have not been filtered out by the navigation filter where you can use this to mark OSM ways as traversable but only if necessary to get to other required ways. e.g. If you are a cyclist and can ride on a footway but do not need to cover footways.
+
+**Note:** Filter fields are hidden by default in this modified version. They can be re-enabled by editing the code if needed.
 
 ## Export GPX
 Once you are happy with the generated route, press 'Export GPX' to save the .gpx file for navigation! 
@@ -130,22 +113,19 @@ Route Crafter uses leaflet.js for the interface and to display the map. All of t
 
 The [previous version](https://github.com/seen-one/Route-Crafter/tree/everystreet) of Route Crafter uses the [everystreet](https://github.com/matejker/everystreet) library. This uses Python with only undirected route support but with somewhat better U-turn avoidance modifications by me. 
 
-### Modificações Técnicas nesta Versão
-- Biblioteca `leaflet.polylineDecorator` incluída localmente em `lib/`
-- Algoritmo de otimização de rotatórias implementado em `js/graph-builder.js`
-- Sistema de Trim Mode com detecção de segmentos desconectados usando BFS/Flood Fill
-- Melhorias na segmentação de vias em intersecções
+### Technical Modifications in This Version
+- Trim Mode system implemented in `js/road-processor.js` with disconnected segment detection using BFS/Flood Fill algorithm
 
 Vibe coded using everything. ChatGPT. Perplexity. Cursor. GitHub Copilot.
 
 ## Debug Menu
 Append [?debug](https://route.crafter.seen.one/?debug) to end of the URL to show the debug menu. After the roads have been fetched, clicking 'Export Largest Component OARLib' will create an .oarlib file suitable for the unmodified ArcRoutingLibrary .jar file. Download [here](https://github.com/Olibear/ArcRoutingLibrary/releases/tag/1.0.1) and use the commands as shown [here](https://github.com/Olibear/ArcRoutingLibrary/blob/master/HOW_TO_USE.txt) to generate the solution. Paste the solution and click 'Apply Solution (Largest Component)' and it will be applied as the solution which can be used to play or download the .gpx route.
 
-## Créditos
+## Credits
 
-- **Projeto Original:** [seen-one/Route-Crafter](https://github.com/seen-one/Route-Crafter)
-- **Autor Original:** [seen-one](https://github.com/seen-one)
-- **Modificações:** Esta versão foi modificada para incluir melhorias específicas
+- **Original Project:** [seen-one/Route-Crafter](https://github.com/seen-one/Route-Crafter)
+- **Original Author:** [seen-one](https://github.com/seen-one)
+- **Modifications:** This version was modified to add the Trim Mode functionality
 
 ## Related
 * [Every Street Challenge](http://www.everystreetchallenge.com/) - The original inspiration
