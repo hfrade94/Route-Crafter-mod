@@ -363,7 +363,7 @@ export class RoutingManager {
                 color: '#00c853',
                 weight: 6,
                 opacity: 0.9
-            }).addTo(this.map);
+        }).addTo(this.map);
         } else {
             this.completedRoutePolyline.setLatLngs(routeUntilCurrent);
         }
@@ -449,7 +449,7 @@ export class RoutingManager {
                         color: '#00c853',
                         weight: 6,
                         opacity: 0.9
-                    }).addTo(this.map);
+                }).addTo(this.map);
                 } else {
                     this.completedRoutePolyline.setLatLngs(routeUntilCurrent);
                 }

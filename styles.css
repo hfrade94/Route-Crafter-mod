@@ -259,6 +259,28 @@ button:hover {
 }
 
 .route-solution-line {
+    z-index: 500;
+}
+
+.route-arrow-icon {
+    z-index: 1000 !important;
+    pointer-events: none;
+    background: transparent !important;
+    border: none !important;
+}
+
+.route-arrow-icon div {
+    text-shadow: 0 0 3px rgba(13, 71, 161, 0.8), 0 0 6px rgba(13, 71, 161, 0.6);
+}
+
+.route-turn-number-icon {
+    z-index: 1500 !important;
+    pointer-events: none;
+}
+
+.route-turn-number-icon svg {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
     filter: drop-shadow(0 0 6px rgba(33, 150, 243, 0.6));
 }
 

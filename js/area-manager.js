@@ -101,7 +101,7 @@ export class AreaManager {
         }
         
         try {
-            const coordinates = drawnLayer.getLatLngs()[0];
+        const coordinates = drawnLayer.getLatLngs()[0];
             if (!coordinates || coordinates.length < 3) {
                 return; // Polígono inválido
             }
@@ -116,20 +116,20 @@ export class AreaManager {
             }
             
             const polygon = turf.polygon([coords]);
-            
-            // Apply buffer if specified
-            const bufferSize = parseFloat(document.getElementById('bufferSize').value) || 1;
-            const bufferedPolygon = turf.buffer(polygon, bufferSize, { units: 'meters' });
-            
-            // Create preview layer
-            this.previewLayer = L.geoJSON(bufferedPolygon, {
-                style: {
-                    color: '#ff6b6b',
-                    fillColor: '#ff6b6b',
-                    fillOpacity: 0.3,
-                    weight: 2
-                }
-            }).addTo(this.mapManager.getMap());
+        
+        // Apply buffer if specified
+        const bufferSize = parseFloat(document.getElementById('bufferSize').value) || 1;
+        const bufferedPolygon = turf.buffer(polygon, bufferSize, { units: 'meters' });
+        
+        // Create preview layer
+        this.previewLayer = L.geoJSON(bufferedPolygon, {
+            style: {
+                color: '#ff6b6b',
+                fillColor: '#ff6b6b',
+                fillOpacity: 0.3,
+                weight: 2
+            }
+        }).addTo(this.mapManager.getMap());
         } catch (err) {
             console.warn('Erro ao criar preview do polígono com buffer:', err);
         }
