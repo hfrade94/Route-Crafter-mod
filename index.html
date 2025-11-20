@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Generate efficient GPX routes covering every street in residential areas using OpenStreetMap. Perfect for street-view collection and complete area coverage.">
+    <meta name="keywords" content="GPX route, street mapping, OpenStreetMap, route planning, Mapillary, street view collection">
+    <meta name="author" content="Route Crafter">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#007bff">
+    
+    <!-- Open Graph for social sharing -->
+    <meta property="og:title" content="Route Crafter - Generate Efficient Street Coverage Routes">
+    <meta property="og:description" content="Create GPX routes that cover every street in your area for navigation, street-view collection, or complete coverage mapping.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://route.crafter.seen.one">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Route Crafter">
+    <meta name="twitter:description" content="Generate efficient GPX routes covering every street">
+    
+    <title>Route Crafter - GPX Route Generator for Street Coverage</title>
+    <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><rect width='100%25' height='100%25' fill='transparent'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='64'>🛣️</text></svg>">
+    
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Route Crafter",
+      "description": "Generate efficient GPX routes covering every street within OpenStreetMap areas",
+      "url": "https://route.crafter.seen.one",
+      "applicationCategory": "MapsApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Route Crafter"
+      }
+    }
+    </script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" integrity="sha512-Zcn6bjR/8RZbLEpLIeOwNtzREBAJnUKESxces60Mpoj+2okopSAcSUIUOseddDm0cxnGQzxIR7vJgsLZbdLE3w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWQzxuSg4DiQUCpauz/EWjgk5TYQqX/kvn9pG1NpYfqg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js" integrity="sha512-Q7HOppxoH0L2M7hreVoFCtUZimR2YaY0fBewIYzkCgmNtgOOZ5IgMNYxHgfps0qrO1ef5m7L1FeHrhXlq1I9HA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/2.2.0/gpx.min.js" integrity="sha512-i9cfK7mcbURqnNfNFYqNhB4/Ae5xAgrrGFPgRnVB5Ws6Xac3BbYqFwtMbyf3QZW8Nq+F7gcWGsM0HUyoA/RVIw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.js"></script>
+    <script src="https://unpkg.com/pbf@3.2.1/dist/pbf.js"></script>
+    <script src="lib/leaflet.polylineDecorator.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" integrity="sha512-gc3xjCmIy673V6MyOAZhIW93xhM9ei1I+gLbmFjUHIjocENRsLX/QUE1htk5q1XV2D/iie/VQ8DXI6Vu8bexvQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" integrity="sha512-ozq8xQKq6urvuU6jNgkfqAmT7jKN2XumbrX1JiB3TnF7tI48DPI4Gy1GXKD/V3EExgAs1V+pRO7vwtS1LHg0Gw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="map"></div>
+    
+    <!-- File Upload Input (hidden) -->
+    <input type="file" id="overpassUploadInput" accept=".json" style="display: none;">
+    
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" data-action="set-depot">Set Starting Location</div>
+        <div class="context-menu-item" data-service="openstreetmap">OpenStreetMap</div>
+        <div class="context-menu-item" data-service="openstreetmap-query">Query Features</div>
+        <div class="context-menu-item" data-service="nominatim">Nominatim</div>
+        <div class="context-menu-item" data-service="mapillary">Mapillary</div>
+        <div class="context-menu-item" data-service="panoramax">Panoramax</div>
+        <div class="context-menu-item" data-service="kartaview">KartaView</div>
+        <div class="context-menu-item" data-service="mapilio">Mapilio</div>
+    </div>
+
+    <!-- Media Player Controls -->
+    <div id="mediaControls" class="media-controls">
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">0.0 km / 0.0 km</div>
+        </div>
+        <div class="media-controls-row">
+            <button class="media-btn" id="playFromBeginningBtn">⏮️</button>
+            <button class="media-btn" id="playPauseBtn">▶️</button>
+            <button class="media-btn" id="closeBtn">✕</button>
+        </div>
+        <div class="media-controls-row">
+            <div class="speed-control">
+                <span style="font-size: 12px; color: #666;">Speed:</span>
+                <button class="speed-btn" data-speed="0.1">0.1x</button>
+                <button class="speed-btn active" data-speed="0.25">0.25x</button>
+                <button class="speed-btn" data-speed="0.5">0.5x</button>
+                <button class="speed-btn" data-speed="1">1x</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/teavm.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>
