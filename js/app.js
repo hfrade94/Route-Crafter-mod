@@ -330,51 +330,36 @@ export class RouteCrafterApp {
             this.areaManager.fetchAreasByRule();
         });
 
-        // Preview GPX button
+        // Fetch roads button
         document.getElementById('previewGPXButton').addEventListener('click', () => {
-            this.roadProcessor.fetchRoadsInArea(
-                (roadFeatures) => this.createCoordinateMappings(roadFeatures)
-            );
+            this.previewRoadsAndBuildGraph();
         });
 
         document.getElementById('generateRouteButton').addEventListener('click', () => {
             this.handleGenerateRoute();
         });
 
+        const toggleArrowsButton = document.getElementById('toggleArrowsButton');
+        if (toggleArrowsButton && this.solutionVisualizer) {
+            const refreshArrowLabel = () => {
+                toggleArrowsButton.textContent = this.solutionVisualizer.areArrowsEnabled() ? 'Arrows: ON' : 'Arrows: OFF';
+            };
+            refreshArrowLabel();
+            toggleArrowsButton.addEventListener('click', () => {
+                this.solutionVisualizer.toggleArrowsEnabled();
+                refreshArrowLabel();
+            });
+        }
+
         // Export GPX button
         document.getElementById('exportGPXButton').addEventListener('click', () => {
-            // Attempt to get route points from routing manager
-            const routePoints = this.routingManager && this.routingManager.getRoutePoints ? this.routingManager.getRoutePoints() : [];
-            if (!routePoints || routePoints.length === 0) {
-                alert('No route available to export. Generate or apply a route first.');
-                return;
-            }
-
-            // Use timestamped filename
-            const now = new Date();
-            const filename = `route-${now.toISOString().replace(/[:.]/g, '-')}.gpx`;
-            this.exportRouteToGPX(routePoints, filename);
+            this.handleExportGPX();
         });
 
         // Play Route button
         document.getElementById('playRouteButton').addEventListener('click', () => {
             this.playRouteAnimation();
         });
-
-        const toggleArrowsButton = document.getElementById('toggleArrowsButton');
-        if (toggleArrowsButton && this.solutionVisualizer && typeof this.solutionVisualizer.toggleArrowsEnabled === 'function') {
-            const syncArrowButton = () => {
-                toggleArrowsButton.textContent = this.solutionVisualizer.areArrowsEnabled()
-                    ? 'Arrows: ON'
-                    : 'Arrows: OFF';
-            };
-            syncArrowButton();
-
-            toggleArrowsButton.addEventListener('click', () => {
-                this.solutionVisualizer.toggleArrowsEnabled();
-                syncArrowButton();
-            });
-        }
 
         // Download button (debug menu only)
         const downloadButton = document.getElementById('downloadButton');
@@ -682,6 +667,66 @@ export class RouteCrafterApp {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    previewRoadsAndBuildGraph() {
+        if (!this.roadProcessor || typeof this.roadProcessor.fetchRoadsInArea !== 'function') {
+            console.warn('Road processor is not available.');
+            return;
+        }
+
+        this.roadProcessor.fetchRoadsInArea((roadFeatures) => {
+            try {
+                this.createCoordinateMappings(roadFeatures);
+            } catch (error) {
+                console.error('Failed to create coordinate mappings after fetching roads:', error);
+            }
+        });
+    }
+
+    handleExportGPX() {
+        const routePoints = this.routingManager && this.routingManager.getRoutePoints ? this.routingManager.getRoutePoints() : [];
+        if (Array.isArray(routePoints) && routePoints.length >= 2) {
+            const filename = `route-${new Date().toISOString().replace(/[:.]/g, '-')}.gpx`;
+            this.exportRouteToGPX(routePoints, filename);
+            return;
+        }
+
+        const geoJsonLayer = this.roadProcessor && this.roadProcessor.getGeoJsonLayer ? this.roadProcessor.getGeoJsonLayer() : null;
+        if (!geoJsonLayer || typeof geoJsonLayer.eachLayer !== 'function') {
+            alert('No route available to export. Please click "Fetch Roads" and/or "Generate Route" first.');
+            return;
+        }
+
+        const fallbackPath = [];
+        geoJsonLayer.eachLayer(layer => {
+            const coords = layer && layer.feature && layer.feature.geometry && layer.feature.geometry.coordinates;
+            if (!Array.isArray(coords)) {
+                return;
+            }
+            coords.forEach(coord => {
+                if (!Array.isArray(coord) || coord.length < 2) {
+                    return;
+                }
+                const lat = Number(coord[1]);
+                const lon = Number(coord[0]);
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+                    return;
+                }
+                const lastPoint = fallbackPath[fallbackPath.length - 1];
+                if (!lastPoint || Math.abs(lastPoint[0] - lat) > 1e-6 || Math.abs(lastPoint[1] - lon) > 1e-6) {
+                    fallbackPath.push([lat, lon]);
+                }
+            });
+        });
+
+        if (fallbackPath.length < 2) {
+            alert('No road geometry is available to export yet. Please fetch roads again or generate a route.');
+            return;
+        }
+
+        const filename = `roads-${new Date().toISOString().replace(/[:.]/g, '-')}.gpx`;
+        this.exportRouteToGPX(fallbackPath, filename);
     }
 
     async handleGenerateRoute() {

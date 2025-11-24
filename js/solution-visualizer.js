@@ -131,18 +131,17 @@ export class SolutionVisualizer {
         // (Previously displayed "Chinese Postman Solution (Vertex Path)")
         this.cppSolutionLayer.addTo(this.mapManager.getMap());
         
-        // Create direction arrows if enabled
         if (this.arrowsEnabled) {
             this.addSolutionDirectionArrows(reconstructedPath);
+            
             if (this.solutionDirectionLayer) {
                 this.solutionDirectionLayer.addTo(this.mapManager.getMap());
                 if (typeof this.solutionDirectionLayer.bringToFront === 'function') {
                     this.solutionDirectionLayer.bringToFront();
                 }
             }
-        } else if (this.solutionDirectionLayer && this.solutionDirectionLayer._map) {
-            this.mapManager.getMap().removeLayer(this.solutionDirectionLayer);
-            this.solutionDirectionLayer = null;
+        } else {
+            this.removeDirectionLayer();
         }
         // Não trazer para frente automaticamente - deixar o Trim Mode controlar a ordem das camadas
         // Se o Trim Mode estiver ativo, o geoJsonLayer deve ficar acima
@@ -518,32 +517,28 @@ export class SolutionVisualizer {
             this.mapManager.getMap().removeLayer(this.cppSolutionLayer);
             this.cppSolutionLayer = null;
         }
-        if (this.solutionDirectionLayer) {
-            if (this.solutionDirectionLayer._map) {
-                this.mapManager.getMap().removeLayer(this.solutionDirectionLayer);
-            }
-            this.solutionDirectionLayer = null;
-        }
+        this.removeDirectionLayer();
         this.lastPath = null;
     }
-
+    
     areArrowsEnabled() {
         return this.arrowsEnabled;
     }
 
+    toggleArrowsEnabled() {
+        return this.setArrowsEnabled(!this.arrowsEnabled);
+    }
+
     setArrowsEnabled(enabled) {
-        const nextValue = !!enabled;
-        if (nextValue === this.arrowsEnabled) {
+        const normalized = !!enabled;
+        if (normalized === this.arrowsEnabled) {
             return this.arrowsEnabled;
         }
-        this.arrowsEnabled = nextValue;
+        this.arrowsEnabled = normalized;
 
         if (!this.arrowsEnabled) {
-            if (this.solutionDirectionLayer && this.solutionDirectionLayer._map) {
-                this.mapManager.getMap().removeLayer(this.solutionDirectionLayer);
-            }
-            this.solutionDirectionLayer = null;
-        } else if (this.lastPath && this.lastPath.length > 1) {
+            this.removeDirectionLayer();
+        } else if (this.lastPath) {
             this.addSolutionDirectionArrows(this.lastPath);
             if (this.solutionDirectionLayer) {
                 this.solutionDirectionLayer.addTo(this.mapManager.getMap());
@@ -556,8 +551,13 @@ export class SolutionVisualizer {
         return this.arrowsEnabled;
     }
 
-    toggleArrowsEnabled() {
-        return this.setArrowsEnabled(!this.arrowsEnabled);
+    removeDirectionLayer() {
+        if (this.solutionDirectionLayer) {
+            if (this.solutionDirectionLayer._map) {
+                this.mapManager.getMap().removeLayer(this.solutionDirectionLayer);
+            }
+            this.solutionDirectionLayer = null;
+        }
     }
 }
 
