@@ -361,6 +361,21 @@ export class RouteCrafterApp {
             this.playRouteAnimation();
         });
 
+        const toggleArrowsButton = document.getElementById('toggleArrowsButton');
+        if (toggleArrowsButton && this.solutionVisualizer && typeof this.solutionVisualizer.toggleArrowsEnabled === 'function') {
+            const syncArrowButton = () => {
+                toggleArrowsButton.textContent = this.solutionVisualizer.areArrowsEnabled()
+                    ? 'Arrows: ON'
+                    : 'Arrows: OFF';
+            };
+            syncArrowButton();
+
+            toggleArrowsButton.addEventListener('click', () => {
+                this.solutionVisualizer.toggleArrowsEnabled();
+                syncArrowButton();
+            });
+        }
+
         // Download button (debug menu only)
         const downloadButton = document.getElementById('downloadButton');
         if (downloadButton) {

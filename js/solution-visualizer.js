@@ -7,6 +7,8 @@ export class SolutionVisualizer {
         
         this.cppSolutionLayer = null;
         this.solutionDirectionLayer = null;
+        this.arrowsEnabled = false;
+        this.lastPath = null;
     }
 
     getCppSolutionLayer() {
@@ -110,6 +112,8 @@ export class SolutionVisualizer {
             return;
         }
 
+        this.lastPath = reconstructedPath;
+
         // Create a polyline for the solution path
         const pathLayer = L.polyline(reconstructedPath, {
             color: '#0d47a1',
@@ -127,16 +131,18 @@ export class SolutionVisualizer {
         // (Previously displayed "Chinese Postman Solution (Vertex Path)")
         this.cppSolutionLayer.addTo(this.mapManager.getMap());
         
-        // Create direction arrows
-        this.addSolutionDirectionArrows(reconstructedPath);
-        
-        // Add arrow markers to map with high z-index to appear above route line
-        if (this.solutionDirectionLayer) {
-            this.solutionDirectionLayer.addTo(this.mapManager.getMap());
-            // Ensure arrows are above the route line
-            if (typeof this.solutionDirectionLayer.bringToFront === 'function') {
-                this.solutionDirectionLayer.bringToFront();
+        // Create direction arrows if enabled
+        if (this.arrowsEnabled) {
+            this.addSolutionDirectionArrows(reconstructedPath);
+            if (this.solutionDirectionLayer) {
+                this.solutionDirectionLayer.addTo(this.mapManager.getMap());
+                if (typeof this.solutionDirectionLayer.bringToFront === 'function') {
+                    this.solutionDirectionLayer.bringToFront();
+                }
             }
+        } else if (this.solutionDirectionLayer && this.solutionDirectionLayer._map) {
+            this.mapManager.getMap().removeLayer(this.solutionDirectionLayer);
+            this.solutionDirectionLayer = null;
         }
         // Não trazer para frente automaticamente - deixar o Trim Mode controlar a ordem das camadas
         // Se o Trim Mode estiver ativo, o geoJsonLayer deve ficar acima
@@ -408,6 +414,9 @@ export class SolutionVisualizer {
 
 
     addSolutionDirectionArrows(path) {
+        if (!this.arrowsEnabled) {
+            return;
+        }
         if (!path || path.length < 2) {
             return;
         }
@@ -515,6 +524,40 @@ export class SolutionVisualizer {
             }
             this.solutionDirectionLayer = null;
         }
+        this.lastPath = null;
+    }
+
+    areArrowsEnabled() {
+        return this.arrowsEnabled;
+    }
+
+    setArrowsEnabled(enabled) {
+        const nextValue = !!enabled;
+        if (nextValue === this.arrowsEnabled) {
+            return this.arrowsEnabled;
+        }
+        this.arrowsEnabled = nextValue;
+
+        if (!this.arrowsEnabled) {
+            if (this.solutionDirectionLayer && this.solutionDirectionLayer._map) {
+                this.mapManager.getMap().removeLayer(this.solutionDirectionLayer);
+            }
+            this.solutionDirectionLayer = null;
+        } else if (this.lastPath && this.lastPath.length > 1) {
+            this.addSolutionDirectionArrows(this.lastPath);
+            if (this.solutionDirectionLayer) {
+                this.solutionDirectionLayer.addTo(this.mapManager.getMap());
+                if (typeof this.solutionDirectionLayer.bringToFront === 'function') {
+                    this.solutionDirectionLayer.bringToFront();
+                }
+            }
+        }
+
+        return this.arrowsEnabled;
+    }
+
+    toggleArrowsEnabled() {
+        return this.setArrowsEnabled(!this.arrowsEnabled);
     }
 }
 

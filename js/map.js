@@ -285,6 +285,7 @@ export class MapManager {
                         <button id="previewGPXButton">Fetch Roads</button>
                         <button id="generateRouteButton">Generate Route</button>
                         <button id="playRouteButton">Play Route</button>
+                        <button id="toggleArrowsButton" class="secondary-btn">Arrows: OFF</button>
                         <button id="exportGPXButton">Export GPX</button>
                         <button id="clearButton">Reset</button>
                         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
