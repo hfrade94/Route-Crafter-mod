@@ -285,13 +285,14 @@ export class MapManager {
                         <button id="previewGPXButton">Fetch Roads</button>
                         <button id="generateRouteButton">Generate Route</button>
                         <button id="playRouteButton">Play Route</button>
-                        <button id="toggleArrowsButton" class="secondary-btn">Arrows: OFF</button>
                         <button id="exportGPXButton">Export GPX</button>
                         <button id="clearButton">Reset</button>
                         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
+                            <button id="exportRoadsGPXButton" class="secondary-btn">Export Roads GPX</button>
                             <button id="trimModeButton" class="secondary-btn">Trim Mode</button>
                             <button id="trimSaveButton" class="secondary-btn" style="display:none;">Save Trim</button>
                             <button id="trimCancelButton" class="secondary-btn" style="display:none;">Cancel</button>
+                            <button id="toggleArrowsButton" class="secondary-btn">Arrows: OFF</button>
                         </div>
                         <br>
                         <div style="display: flex; align-items: center; margin: 0; padding: 0; box-shadow: none; border: none; background: none;">
@@ -395,6 +396,7 @@ export class MapManager {
                 if (routeFilterContainer) {
                     routeFilterContainer.style.display = 'none';
                 }
+
             } catch (e) {
                 // Fail silently - UI enhancement only
                 console.error('Error setting up Mapillary filter visibility:', e);

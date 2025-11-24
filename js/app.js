@@ -335,6 +335,11 @@ export class RouteCrafterApp {
             this.previewRoadsAndBuildGraph();
         });
 
+        // Export Roads GPX button
+        document.getElementById('exportRoadsGPXButton').addEventListener('click', () => {
+            this.exportRoadsLayerToGPX();
+        });
+
         document.getElementById('generateRouteButton').addEventListener('click', () => {
             this.handleGenerateRoute();
         });
@@ -1163,6 +1168,245 @@ export class RouteCrafterApp {
             console.warn('Error updating stats display:', err);
         }
     }
+
+    // Export roads layer to GPX (each road segment as a track segment)
+    async exportRoadsLayerToGPX() {
+        const geoJsonLayer = this.roadProcessor && this.roadProcessor.getGeoJsonLayer ? this.roadProcessor.getGeoJsonLayer() : null;
+        if (!geoJsonLayer) {
+            alert('No road data available. Please fetch roads first.');
+            return;
+        }
+
+        const features = [];
+        geoJsonLayer.eachLayer((layer) => {
+            const feature = layer && layer.feature;
+            if (feature && feature.geometry && feature.geometry.type === 'LineString') {
+                features.push(feature);
+            }
+        });
+
+        if (features.length === 0) {
+            alert('No road segments found to export.');
+            return;
+        }
+
+        // Build GPX content with multiple track segments
+        const header = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Route Crafter" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+        const footer = '</gpx>';
+
+        const tracks = features.map((feature, index) => {
+            const coords = feature.geometry.coordinates;
+            if (!coords || coords.length === 0) return '';
+
+            // Each coordinate is [lng, lat] in GeoJSON, convert to [lat, lng] for GPX
+            const trackPoints = coords.map(coord => {
+                const lat = coord[1];
+                const lon = coord[0];
+                return `        <trkpt lat="${lat}" lon="${lon}"></trkpt>`;
+            }).join('\n');
+
+            const highway = feature.properties && feature.properties.highway ? feature.properties.highway : 'road';
+            const name = feature.properties && feature.properties.name ? feature.properties.name : `Road ${index + 1}`;
+            
+            return `  <trk>\n    <name>${this.escapeXml(name)} (${highway})</name>\n    <trkseg>\n${trackPoints}\n    </trkseg>\n  </trk>`;
+        }).filter(track => track.length > 0).join('\n');
+
+        const gpx = header + tracks + '\n' + footer;
+
+        // Generate filename with neighborhood name if Admin Level 10 is selected
+        const now = new Date();
+        let filename;
+        
+        const selectedRule = document.getElementById('searchRules') ? document.getElementById('searchRules').value : null;
+        if (selectedRule === 'admin_level=10' || selectedRule === 'admin_level=9') {
+            // Try to get neighborhood name and city name from highlighted polygons
+            const highlightedPolygons = this.areaManager && this.areaManager.getHighlightedPolygons ? this.areaManager.getHighlightedPolygons() : [];
+            const neighborhoodNames = [];
+            let cityName = null;
+            
+            highlightedPolygons.forEach(layer => {
+                if (layer && layer.feature && layer.feature.properties) {
+                    const props = layer.feature.properties;
+                    
+                    // Extract neighborhood name (only for Admin Level 10)
+                    if (selectedRule === 'admin_level=10') {
+                        const name = props.name;
+                        if (name && typeof name === 'string' && name.trim().length > 0) {
+                            // Sanitize name: remove accents, special characters, replace spaces with underscores
+                            const sanitized = this.sanitizeFilename(name.trim());
+                            if (sanitized.length > 0) {
+                                neighborhoodNames.push(sanitized);
+                            }
+                        }
+                    }
+                    
+                    // For Admin Level 9, the polygon name is usually the city name
+                    if (selectedRule === 'admin_level=9' && !cityName) {
+                        const name = props.name;
+                        if (name && typeof name === 'string' && name.trim().length > 0) {
+                            const sanitized = this.sanitizeFilename(name.trim());
+                            if (sanitized.length > 0) {
+                                cityName = sanitized;
+                            }
+                        }
+                    }
+                    
+                    // Try to extract city name from various OSM properties
+                    if (!cityName) {
+                        // Try different property names that might contain city name
+                        const cityProps = [
+                            props['addr:city'],
+                            props['is_in:city'],
+                            props['addr:place'], // Sometimes city is in place
+                            props['place:city'], // Direct city property
+                            props['is_in'] // General is_in property (may contain city)
+                        ];
+                        
+                        for (const cityProp of cityProps) {
+                            if (cityProp && typeof cityProp === 'string' && cityProp.trim().length > 0) {
+                                // Extract city name if is_in contains city (format: "city, state, country")
+                                const cityMatch = cityProp.match(/^([^,]+)/);
+                                const extractedCity = cityMatch ? cityMatch[1].trim() : cityProp.trim();
+                                
+                                // Sanitize city name: remove accents, special characters, normalize spaces
+                                const sanitizedCity = this.sanitizeFilename(extractedCity);
+                                
+                                if (sanitizedCity.length > 0) {
+                                    cityName = sanitizedCity;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // If no city found in properties, try to get from map center using reverse geocoding
+            if (!cityName && highlightedPolygons.length > 0) {
+                // Get center of first polygon
+                const firstPolygon = highlightedPolygons[0];
+                if (firstPolygon && firstPolygon.getBounds) {
+                    const bounds = firstPolygon.getBounds();
+                    const center = bounds.getCenter();
+                    
+                    // Try to fetch city name from Nominatim (reverse geocoding) with timeout
+                    try {
+                        const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${center.lat}&lon=${center.lng}&zoom=10&addressdetails=1`;
+                        const fetchPromise = fetch(nominatimUrl);
+                        const timeoutPromise = new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout')), 2000)
+                        );
+                        
+                        const response = await Promise.race([fetchPromise, timeoutPromise]);
+                        const data = await response.json();
+                        
+                        if (data && data.address) {
+                            // Try different address fields for city name
+                            const cityFields = ['city', 'town', 'municipality', 'county', 'state_district'];
+                            for (const field of cityFields) {
+                                if (data.address[field]) {
+                                    const extractedCity = data.address[field].trim();
+                                    // Sanitize city name: remove accents, special characters, normalize spaces
+                                    const sanitizedCity = this.sanitizeFilename(extractedCity);
+                                    if (sanitizedCity.length > 0) {
+                                        cityName = sanitizedCity;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Failed to fetch city name from Nominatim (using without city name):', err);
+                        // Continue without city name
+                    }
+                }
+            }
+            
+            if (selectedRule === 'admin_level=9') {
+                // For Admin Level 9 (city boundaries), use only city name
+                const dateStr = now.toISOString().replace(/[:.]/g, '-').split('T')[0]; // YYYY-MM-DD
+                const timeStr = now.toISOString().replace(/[:.]/g, '-').split('T')[1].split('.')[0]; // HH-MM-SS
+                
+                if (cityName) {
+                    filename = `${cityName}_${dateStr}_${timeStr}.gpx`;
+                } else {
+                    // Try to get city name from polygon name if available
+                    const polygonName = highlightedPolygons.length > 0 && highlightedPolygons[0].feature && highlightedPolygons[0].feature.properties
+                        ? highlightedPolygons[0].feature.properties.name : null;
+                    if (polygonName && typeof polygonName === 'string' && polygonName.trim().length > 0) {
+                        const sanitizedPolygonName = this.sanitizeFilename(polygonName.trim());
+                        if (sanitizedPolygonName.length > 0) {
+                            filename = `${sanitizedPolygonName}_${dateStr}_${timeStr}.gpx`;
+                        } else {
+                            filename = `roads-${now.toISOString().replace(/[:.]/g, '-')}.gpx`;
+                        }
+                    } else {
+                        filename = `roads-${now.toISOString().replace(/[:.]/g, '-')}.gpx`;
+                    }
+                }
+            } else if (neighborhoodNames.length > 0) {
+                // For Admin Level 10, use city name + neighborhood name(s) in filename
+                const namesStr = neighborhoodNames.join('_');
+                const dateStr = now.toISOString().replace(/[:.]/g, '-').split('T')[0]; // YYYY-MM-DD
+                const timeStr = now.toISOString().replace(/[:.]/g, '-').split('T')[1].split('.')[0]; // HH-MM-SS
+                
+                if (cityName) {
+                    filename = `${cityName}_${namesStr}_${dateStr}_${timeStr}.gpx`;
+                } else {
+                    filename = `${namesStr}_${dateStr}_${timeStr}.gpx`;
+                }
+            } else {
+                // Fallback to default if no neighborhood name found
+                filename = `roads-${now.toISOString().replace(/[:.]/g, '-')}.gpx`;
+            }
+        } else {
+            // Default filename for other search rules
+            filename = `roads-${now.toISOString().replace(/[:.]/g, '-')}.gpx`;
+        }
+
+        const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        console.info(`Exported ${features.length} road segments to GPX`);
+    }
+
+
+    // Helper function to remove accents from text
+    removeAccents(text) {
+        if (typeof text !== 'string') return '';
+        return text
+            .normalize('NFD') // Decompose characters (á -> a + ´)
+            .replace(/[\u0300-\u036f]/g, ''); // Remove diacritics
+    }
+
+    // Helper function to sanitize filename (remove accents, special chars, normalize spaces)
+    sanitizeFilename(text) {
+        if (typeof text !== 'string') return '';
+        return this.removeAccents(text)
+            .replace(/[^\w\s-]/g, '') // Remove special characters except word chars, spaces, and hyphens
+            .replace(/\s+/g, '_') // Replace spaces with underscores
+            .replace(/_+/g, '_') // Replace multiple underscores with single
+            .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+    }
+
+    // Helper function to escape XML special characters
+    escapeXml(text) {
+        if (typeof text !== 'string') return '';
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    }
+
         // Export route points (array of [lat, lng]) to a GPX file and trigger download
         exportRouteToGPX(routePoints, filename = 'route.gpx') {
             if (!routePoints || routePoints.length === 0) return;
